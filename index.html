@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TeamSync Drive</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            margin: 0;
+            padding: 20px;
+            color: white;
+        }
+
+        .container {
+            max-width: 900px;
+            margin: auto;
+        }
+
+        .card {
+            background: white;
+            color: black;
+            padding: 20px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+        }
+
+        input, button {
+            padding: 12px;
+            margin: 8px 0;
+            width: 100%;
+            border-radius: 8px;
+            border: 1px solid #ccc;
+        }
+
+        button {
+            background: #667eea;
+            color: white;
+            cursor: pointer;
+            border: none;
+        }
+
+        .hidden {
+            display: none;
+        }
+
+        .file-item {
+            padding: 10px;
+            border-bottom: 1px solid #ddd;
+        }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div id="loginCard" class="card">
+        <h1>TeamSync Drive</h1>
+
+        <input type="email" id="email" value="alice@team.io">
+        <input type="password" id="password" value="demo123">
+
+        <button onclick="login()">Login</button>
+
+        <p>Demo Login: alice@team.io / demo123</p>
+    </div>
+
+    <div id="dashboard" class="hidden">
+        <div class="card">
+            <h2>Dashboard</h2>
+            <p id="stats"></p>
+
+            <input type="file" id="fileInput">
+            <button onclick="uploadFile()">Upload File</button>
+        </div>
+
+        <div class="card">
+            <h3>Files</h3>
+            <div id="files"></div>
+        </div>
+    </div>
+</div>
+
+<script>
+let token = localStorage.getItem('token') || '';
+
+async function login() {
+    const email = document.getElementById('email').value;
+    const password = document.getElementById('password').value;
+
+    const response = await fetch('/api/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ email, password })
+    });
+
+    const data = await response.json();
+
+    if (response.ok) {
+        token = data.token;
+        localStorage.setItem('token', token);
+
+        document.getElementById('loginCard').classList.add('hidden');
+        document.getElementById('dashboard').classList.remove('hidden');
+
+        loadStats();
+        loadFiles();
+    } else {
+        alert(data.error);
+    }
+}
+
+async function loadStats() {
+    const response = await fetch('/api/user/stats', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    const data = await response.json();
+
+    document.getElementById('stats').innerText =
+        `Files: ${data.file_count} | Storage: ${(data.storage_used / (1024**3)).toFixed(2)} GB`;
+}
+
+async function loadFiles() {
+    const response = await fetch('/api/files', {
+        headers: { 'Authorization': `Bearer ${token}` }
+    });
+
+    const files = await response.json();
+
+    document.getElementById('files').innerHTML = files.map(file => `
+        <div class="file-item">
+            📄 ${file.original_name}
+        </div>
+    `).join('');
+}
+
+async function uploadFile() {
+    const file = document.getElementById('fileInput').files[0];
+
+    if (!file) {
+        alert('Select a file first');
+        return;
+    }
+
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const response = await fetch('/api/upload', {
+        method: 'POST',
+        headers: {
+            'Authorization': `Bearer ${token}`
+        },
+        body: formData
+    });
+
+    if (response.ok) {
+        alert('File uploaded');
+        loadFiles();
+        loadStats();
+    } else {
+        alert('Upload failed');
+    }
+}
+</script>
+</body>
+</html>
